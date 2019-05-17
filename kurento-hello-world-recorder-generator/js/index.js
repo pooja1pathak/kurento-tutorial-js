@@ -75,7 +75,24 @@ function setStatus(nextState){
   }
 }
 
+function setIceCandidateCallbacks(webRtcEndpoint, webRtcPeer, onError){
+  webRtcPeer.on('icecandidate', function(candidate){
+    console.log("Local icecandidate " + JSON.stringify(candidate));
 
+    candidate = kurentoClient.register.complexTypes.IceCandidate(candidate);
+
+    webRtcEndpoint.addIceCandidate(candidate, onError);
+
+  });
+  webRtcEndpoint.on('OnIceCandidate', function(event){
+    var candidate = event.candidate;
+
+    console.log("Remote icecandidate " + JSON.stringify(candidate));
+
+    webRtcPeer.addIceCandidate(candidate, onError);
+  });
+}
+/*
 function setIceCandidateCallbacks(webRtcPeer, webRtcEp, onerror)
 {
   webRtcPeer.on('icecandidate', function(candidate) {
@@ -94,7 +111,7 @@ function setIceCandidateCallbacks(webRtcPeer, webRtcEp, onerror)
     webRtcPeer.addIceCandidate(candidate, onerror);
   });
 }
-
+*/
 
 window.onload = function() {
   console = new Console();
