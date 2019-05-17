@@ -223,7 +223,9 @@ function onPlayOffer(error, sdpOffer){
       pipeline = yield client.create('MediaPipeline');
 
       var webRtc = yield pipeline.create('WebRtcEndpoint');
-      setIceCandidateCallbacks(webRtcPeer, webRtc, onError)
+      //setIceCandidateCallbacks(webRtcPeer, webRtc, onError)
+      
+      setIceCandidateCallbacks(webRtcEndpoint, webRtcPeer, onError);
 
       var player = yield pipeline.create('PlayerEndpoint', {uri : args.file_uri});
 
