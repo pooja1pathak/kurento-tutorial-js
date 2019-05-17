@@ -29,7 +29,7 @@ var args = getopts(location.search,
 {
   default:
   {
-    ws_uri: 'wss://' + location.hostname + ':8433/kurento',
+    ws_uri: 'ws://' + location.hostname + ':8888/kurento',
     file_uri: 'file:///tmp/kurento-hello-world-recording.webm',
     ice_servers: undefined
   }
@@ -37,6 +37,7 @@ var args = getopts(location.search,
 
 var videoInput;
 var videoOutput;
+var address;
 var webRtcPeer;
 var client;
 var pipeline;
@@ -98,21 +99,34 @@ function setIceCandidateCallbacks(webRtcPeer, webRtcEp, onerror)
 window.onload = function() {
   console = new Console();
 
-  videoInput = document.getElementById('videoInput');
+  //videoInput = document.getElementById('videoInput');
   videoOutput = document.getElementById('videoOutput');
+  address = document.getElementById('address');
+	address.value = 'http://files.kurento.org/video/puerta-del-sol.ts';
 
   setStatus(IDLE);
 }
 
 function start() {
-  setStatus(DISABLED);
-  showSpinner(videoInput, videoOutput);
-
-  var options =
-  {
-    localVideo: videoInput,
-    remoteVideo: videoOutput
+  if(!address.value){
+   window.alert("You must set the video source URL first");
+   return;
   }
+  setStatus(DISABLED);
+  
+  address.disabled = true;
+  showSpinner(videoOutput);
+  var options = {
+    remoteVideo : videoOutput
+  };
+
+  //showSpinner(videoInput, videoOutput);
+
+  //var options =
+  //{
+    //localVideo: videoInput,
+    //remoteVideo: videoOutput
+  //}
 
   if (args.ice_servers) {
     console.log("Use ICE servers: " + args.ice_servers);
@@ -128,10 +142,19 @@ function start() {
     if(error) return onError(error)
 
     this.generateOffer(onStartOffer)
+    
+    webRtcPeer.peerConnection.addEventListener('iceconnectionstatechange', function(event){
+      if(webRtcPeer && webRtcPeer.peerConnection){
+        console.log("oniceconnectionstatechange -> " + webRtcPeer.peerConnection.iceConnectionState);
+        console.log('icegatheringstate -> ' + webRtcPeer.peerConnection.iceGatheringState);
+      }
+    });
   });
 }
 
 function stop() {
+  address.disabled = false;
+
   if (webRtcPeer) {
     webRtcPeer.dispose();
     webRtcPeer = null;
@@ -142,7 +165,7 @@ function stop() {
     pipeline = null;
   }
 
-  hideSpinner(videoInput, videoOutput);
+  hideSpinner(videoOutput);
   setStatus(IDLE);
 }
 
@@ -152,7 +175,7 @@ function play(){
 
   var options =
   {
-    localVideo: videoInput,
+    //localVideo: videoInput,
     remoteVideo: videoOutput
   }
 
@@ -210,33 +233,45 @@ function onStartOffer(error, sdpOffer)
 {
   if(error) return onError(error)
 
-  co(function*(){
-    try{
-      if(!client)
-        client = yield kurentoClient(args.ws_uri);
+  	kurentoClient(args.ws_uri, function(error, kurentoClient) {
+  		if(error) return onError(error);
 
-      pipeline = yield client.create('MediaPipeline');
+  		kurentoClient.create("MediaPipeline", function(error, p) {
+  			if(error) return onError(error);
 
-      var webRtc = yield pipeline.create('WebRtcEndpoint');
-      setIceCandidateCallbacks(webRtcPeer, webRtc, onError)
+  			pipeline = p;
 
-      var recorder = yield pipeline.create('RecorderEndpoint', {uri: args.file_uri});
+  			pipeline.create("PlayerEndpoint", {uri: address.value}, function(error, player){
+  			  if(error) return onError(error);
 
-      yield webRtc.connect(recorder);
-      yield webRtc.connect(webRtc);
+  			  pipeline.create("WebRtcEndpoint", function(error, webRtcEndpoint){
+  				if(error) return onError(error);
 
-      yield recorder.record();
+          setIceCandidateCallbacks(webRtcEndpoint, webRtcPeer, onError);
 
-      var sdpAnswer = yield webRtc.processOffer(sdpOffer);
-      webRtc.gatherCandidates(onError);
-      webRtcPeer.processAnswer(sdpAnswer)
+  				webRtcEndpoint.processOffer(sdpOffer, function(error, sdpAnswer){
+  					if(error) return onError(error);
 
-      setStatus(CALLING);
+            webRtcEndpoint.gatherCandidates(onError);
 
-    } catch(e){
-      onError(e);
-    }
-  })();
+  					webRtcPeer.processAnswer(sdpAnswer);
+  				});
+
+  				player.connect(webRtcEndpoint, function(error){
+  					if(error) return onError(error);
+
+  					console.log("PlayerEndpoint-->WebRtcEndpoint connection established");
+
+  					player.play(function(error){
+  					  if(error) return onError(error);
+
+  					  console.log("Player playing ...");
+  					});
+  				});
+  			});
+  			});
+  		});
+  	});
 }
 
 function onError(error) {
