@@ -35,7 +35,7 @@ var args = getopts(location.search,
   }
 });
 
-var videoInput;
+//var videoInput;
 var videoOutput;
 var address;
 var webRtcPeer;
@@ -102,7 +102,7 @@ window.onload = function() {
   //videoInput = document.getElementById('videoInput');
   videoOutput = document.getElementById('videoOutput');
   address = document.getElementById('address');
-	address.value = 'http://files.kurento.org/video/puerta-del-sol.ts';
+  address.value = 'http://files.kurento.org/video/puerta-del-sol.ts';
 
   setStatus(IDLE);
 }
